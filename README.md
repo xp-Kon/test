@@ -37,6 +37,16 @@ docs/MECHANISMS.md    机制提取清单
 docs/BUGS.md          缺陷清单与修复对照
 ```
 
+## 部署
+
+仓库有两个分支：`main` 是源码主分支，`gh-pages` 是 GitHub Pages 的发布分支（内容与 main 一致）。
+
+```bash
+bash scripts/deploy.sh "提交说明"    # 同时推 main 与 gh-pages
+```
+
+Pages 走 SSH 443 端口推送（`ssh://git@ssh.github.com:443/xp-Kon/test.git`），因为本机到 github.com:443 直连不通。
+
 ## 本地运行
 
 静态站点需要用 HTTP 打开（`file://` 会被同源策略拦住 `fetch`）：
