@@ -1,0 +1,14 @@
+{
+  "name": "zhiti-quiz-web",
+  "version": "2.0.0",
+  "private": true,
+  "description": "智题刷题系统 Web 版（纯静态，题库内置）",
+  "scripts": {
+    "test": "node tests/logic.test.js && node tests/api.test.js",
+    "test:e2e": "node tests/e2e.run.js",
+    "serve": "python -m http.server 8799"
+  },
+  "devDependencies": {
+    "jsdom": "^31.0.1"
+  }
+}
