@@ -552,3 +552,48 @@ table.data td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .nav-grid { grid-template-columns: repeat(6, 1fr); }
   .logo-sub { display: none; }
 }
+
+/* ---------------- 桌面/移动双布局 ---------------- */
+.mob-only { display: none; }
+
+@media (max-width: 760px) {
+  .desk-only { display: none !important; }
+  .mob-only { display: block; }
+
+  .mob-list { display: flex; flex-direction: column; gap: 10px; }
+  .mob-card {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px;
+    background: #fff;
+  }
+  .mob-title {
+    font-weight: 800;
+    font-size: 15px;
+    margin-bottom: 3px;
+    word-break: break-word;
+    line-height: 1.4;
+  }
+  .mob-kv {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 10px 6px;
+  }
+  .mob-kv span {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 11px;
+    color: var(--ink2);
+  }
+  .mob-kv b { font-size: 15px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .mob-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .mob-actions .btn { flex: 1 1 auto; }
+
+  /* 题库页导入说明里的长代码串允许换行 */
+  .card code, .card .muted { word-break: break-word; }
+}

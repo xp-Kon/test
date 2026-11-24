@@ -163,7 +163,7 @@
     if (!bs.length) {
       html += '<div class="empty"><b>还没有题库</b>支持 CSV / TXT（UTF-8 或 GBK 的文本）；xlsx 可用 tools/build_static_data.py 预转</div>';
     } else {
-      html += '<div class="card"><table class="data"><thead><tr>' +
+      html += '<div class="card"><div class="table-wrap desk-only"><table class="data"><thead><tr>' +
         '<th>题库</th><th class="num">总题数</th><th class="num">单选</th><th class="num">多选</th><th class="num">判断</th><th class="num">填空/简答</th>' +
         '<th class="num">已练</th><th class="num">正确率</th><th class="num">错题</th><th class="num">收藏</th><th>操作</th></tr></thead><tbody>';
       bs.forEach(function (b) {
@@ -180,7 +180,7 @@
           (removable ? '<button class="btn mini danger" data-act="bank-del" data-id="' + b.id + '">删除</button>' : '') +
           '</div></td></tr>';
       });
-      html += '</tbody></table></div>';
+      html += '</tbody></table></div>' + mobBankCards(bs) + '</div>';
     }
     html += '<div class="card" style="margin-top:14px"><div class="card-title">导入说明</div>' +
       '<div class="muted" style="line-height:1.9">' +
@@ -192,6 +192,32 @@
     updateCounters();
   }
 
+  /* 移动端：题库表改成卡片列表（手机上宽表无法阅读） */
+  function mobBankCards(bs) {
+    var html = '<div class="mob-only mob-list">';
+    bs.forEach(function (b) {
+      var removable = b.source && b.source.indexOf('imported:') === 0;
+      html += '<div class="mob-card">' +
+        '<div class="mob-title">' + esc(b.name) + '</div>' +
+        '<div class="muted" style="font-size:11px;margin-bottom:8px;word-break:break-all">' + esc(b.source || '内置题库') + '</div>' +
+        '<div class="mob-kv">' +
+        '<span>总题数<b>' + b.count + '</b></span>' +
+        '<span>已练<b>' + b.practiced + '</b></span>' +
+        '<span>正确率<b>' + (b.attempts ? fmtPct(b.accuracy) : '—') + '</b></span>' +
+        '<span>错题<b style="color:var(--red)">' + (b.wrong || 0) + '</b></span>' +
+        '</div>' +
+        '<div class="muted" style="font-size:11.5px;margin:6px 0 10px">单选 ' + b.single + ' · 多选 ' + b.multiple +
+        ' · 判断 ' + b.judge + ' · 填空/简答 ' + b.fill + ' · 收藏 ' + (b.favorites || 0) + '</div>' +
+        '<div class="mob-actions">' +
+        '<button class="btn mini" data-act="bank-practice" data-id="' + b.id + '">练习</button>' +
+        '<button class="btn mini ghost" data-act="bank-exam" data-id="' + b.id + '">考试</button>' +
+        '<button class="btn mini ghost" data-act="bank-rename" data-id="' + b.id + '">改名</button>' +
+        (removable ? '<button class="btn mini danger" data-act="bank-del" data-id="' + b.id + '">删除</button>' : '') +
+        '</div></div>';
+    });
+    return html + '</div>';
+  }
+
   function openImport() {
     var html = '<div class="modal"><header>导入题库</header><div class="body">' +
       '<div class="field"><label>题库名称</label><input type="text" id="imp-name" placeholder="留空则用文件名"></div>' +
@@ -201,7 +227,6 @@
       '<button class="btn primary" data-act="do-import" id="imp-go" disabled>确认导入</button></footer></div>';
     showModal(html);
     var fileInput = document.getElementById('imp-file');
-    var pending = null;
     fileInput.addEventListener('change', function () {
       var f = fileInput.files && fileInput.files[0];
       if (!f) return;
@@ -213,7 +238,6 @@
         var nextId = (App.state.seq || 1);
         var qs = L.questionsFromRows(rows, nextId, warnings);
         qs = L.dedupe(qs, warnings);
-        pending = { name: (document.getElementById('imp-name').value || f.name.replace(/\.[^.]+$/, '')), questions: qs, warnings: warnings, file: f.name };
         var box = document.getElementById('imp-result');
         var types = {};
         qs.forEach(function (q) { types[q.qtype] = (types[q.qtype] || 0) + 1; });
@@ -836,11 +860,23 @@
     html += '<div class="card" style="margin-top:14px"><div class="card-title">按题库作答</div>';
     if (!byBank.length) html += '<div class="muted">还没有作答记录</div>';
     else {
-      html += '<table class="data"><thead><tr><th>题库</th><th class="num">作答次数</th><th class="num">正确率</th></tr></thead><tbody>';
+      html += '<div class="table-wrap desk-only"><table class="data"><thead><tr><th>题库</th><th class="num">作答次数</th><th class="num">正确率</th></tr></thead><tbody>';
       byBank.forEach(function (b) {
         html += '<tr><td>' + esc(b.name) + '</td><td class="num">' + b.n + '</td><td class="num">' + fmtPct(b.accuracy) + '</td></tr>';
       });
-      html += '</tbody></table>';
+      html += '</tbody></table></div>';
+      html += '<div class="mob-only mob-list">';
+      byBank.forEach(function (b) {
+        html += '<div class="mob-card" style="padding:12px 14px">' +
+          '<div class="mob-title" style="font-size:13.5px">' + esc(b.name) + '</div>' +
+          '<div class="row" style="margin-top:8px;gap:10px">' +
+          '<span class="muted">作答 ' + b.n + ' 次</span>' +
+          '<span class="timer" style="padding:3px 9px;font-size:12px">' + fmtPct(b.accuracy) + '</span>' +
+          '</div>' +
+          '<div class="dist-track" style="margin-top:8px"><i style="width:' + Math.max(2, Math.min(100, b.accuracy)) + '%;background:var(--primary)"></i></div>' +
+          '</div>';
+      });
+      html += '</div>';
     }
     html += '</div>';
 

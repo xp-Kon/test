@@ -1,5 +1,5 @@
-/* 端到端：jsdom 里真实加载 index.html，驱动 UI 走完练习、考试、错题、统计。
-   运行： npm i jsdom && node tests/e2e.run.js */
+/* 端到端：jsdom 里真实加载 site/index.html，驱动 UI 走完练习、考试、错题、统计。
+   运行： node e2e/run.js  */
 const fs = require('fs');
 const path = require('path');
 const { JSDOM, VirtualConsole } = require('jsdom');
@@ -242,6 +242,14 @@ const INLINE_HTML = inlineHtml();
     ok(true, '错题本无条目可标记'); 
   }
 
+  /* ---------- 7b. 题库管理：桌面表 + 移动卡片 ---------- */
+  click('[data-nav="banks"]');
+  await waitFor(() => $('.mob-card'), 2500);
+  ok($$('.desk-only table.data').length === 1, '题库页保留桌面宽表');
+  ok($$('.mob-list .mob-card').length === 4, '题库页移动端 4 张卡片', $$('.mob-list .mob-card').length);
+  ok($$('.mob-kv').length === 4, '每张卡片含统计格', $$('.mob-kv').length);
+  ok(($$('.mob-actions .btn').length >= 12), '卡片内操作按钮齐全', $$('.mob-actions .btn').length);
+
   /* ---------- 8. 考试流程 ---------- */
   click('[data-nav="exam"]');
   await waitFor(() => $('#e-bank'), 2000);
@@ -280,6 +288,8 @@ const INLINE_HTML = inlineHtml();
   const statTxt = $$('.stat .v').map(e => e.textContent.trim());
   ok(statTxt.includes('1239'), '统计页题目总数 1239', statTxt.join('/'));
   ok($$('.dist-row').length === 4, '题型分布 4 行');
+  ok($$('.mob-list .mob-card').length >= 1, '统计页按题库有移动卡片', $$('.mob-list .mob-card').length);
+  ok($$('.desk-only table.data').length >= 1, '统计页保留桌面表格');
   const persisted = JSON.parse(window.localStorage.getItem('quizmaster.web.v1') || '{}');
   ok((persisted.records || []).length > 0, 'localStorage 已持久化作答记录', (persisted.records || []).length);
   ok((persisted.exams || []).length === 1, 'localStorage 已持久化考试记录');
