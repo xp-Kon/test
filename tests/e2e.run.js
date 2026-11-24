@@ -308,6 +308,30 @@ const INLINE_HTML = inlineHtml();
   const accText = ok2 ? Array.from(dom2.window.document.querySelectorAll('.stat .v')).map(e => e.textContent.trim()) : [];
   ok(ok2 && accText.some(t => /%/.test(t)), '刷新后首页仍显示正确率（进度已恢复）', accText.join('/'));
 
+  /* ---------- 9b. 窄屏（420px）统计页 ---------- */
+  const dom3 = new JSDOM(INLINE_HTML, {
+    url: 'https://xp-kon.github.io/test/', runScripts: 'dangerously',
+    pretendToBeVisual: true, virtualConsole: vc,
+    beforeParse(w) {
+      w.fetch = () => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(DATA) });
+      w.scrollTo = () => {};
+      Object.defineProperty(w, 'innerWidth', { value: 420, configurable: true });
+      w.localStorage.setItem('quizmaster.web.v1', JSON.stringify(persisted));
+    }
+  });
+  const w3 = dom3.window;
+  const ok3 = await waitFor(() => w3.document.querySelectorAll('.stat').length === 5, 5000);
+  ok(ok3, '窄屏：首页渲染');
+  const navBtn = Array.from(w3.document.querySelectorAll('[data-nav="stats"]'))[0];
+  navBtn.dispatchEvent(new w3.MouseEvent('click', { bubbles: true }));
+  ok(await waitFor(() => w3.document.querySelector('.chart'), 2500), '窄屏：统计页渲染');
+  const bars = w3.document.querySelectorAll('.chart .bar-wrap').length;
+  ok(bars === 7, '窄屏统计图只画 7 天（不挤成一条线）', bars);
+  const titleTxt = w3.document.querySelector('.card-title').textContent;
+  ok(/近 7 天作答/.test(titleTxt), '窄屏标题显示「近 7 天作答」', titleTxt);
+  ok(w3.document.querySelectorAll('.mob-list .mob-card').length >= 1, '窄屏：按题库为移动卡片');
+  ok(w3.document.querySelectorAll('.desk-only').length >= 1, '窄屏：桌面容器仍在 DOM（由 CSS 隐藏）');
+
   /* ---------- 汇总 ---------- */
   ok(jsErrors.length === 0, '无 JS 运行时错误', jsErrors.slice(0, 3).join(' | '));
   console.log('PASS ' + pass + ' FAIL ' + fail);

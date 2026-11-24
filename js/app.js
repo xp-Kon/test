@@ -832,9 +832,15 @@
   }
 
   /* ---------------- 统计 ---------------- */
+  function isNarrow() {
+    try { return window.matchMedia('(max-width: 900px)').matches; } catch (e) { return window.innerWidth <= 900; }
+  }
+
   function renderStats() {
     var ov = L.overview(App.data, App.state);
-    var daily = L.dailyActivity(App.state, 14);
+    var narrow = isNarrow();
+    var days = narrow ? 7 : 14;
+    var daily = L.dailyActivity(App.state, days);
     var maxN = Math.max.apply(null, daily.map(function (d) { return d.n; }).concat([1]));
     var byBank = L.accuracyByBank(App.data, App.state);
     var dist = L.typeDistribution(App.data, App.state);
@@ -849,11 +855,12 @@
       statCard('正确率（题目）', ov.practiced ? fmtPct(ov.accuracy_distinct) : '—', '最终答对题 / 练过的题', 'var(--primary)') +
       statCard('待消灭错题', ov.wrong, '错题本剩余', 'var(--red)') + '</div>';
 
-    html += '<div class="card" style="margin-top:14px"><div class="card-title">近 14 天作答</div><div class="chart">';
+    html += '<div class="card" style="margin-top:14px"><div class="card-title">近 ' + days + ' 天作答</div><div class="chart">';
     daily.forEach(function (d) {
       var h = Math.round(d.n / maxN * 100);
+      var lab = narrow ? d.day.slice(5).replace('-', '/') : d.day.slice(5);
       html += '<div class="bar-wrap"><div class="bar' + (d.n ? '' : ' empty') + '" style="height:' + Math.max(h, d.n ? 6 : 2) + '%" title="' +
-        d.day + '：' + d.n + ' 题，答对 ' + d.ok + '"></div><div class="lab">' + d.day.slice(5) + '</div></div>';
+        d.day + '：' + d.n + ' 题，答对 ' + d.ok + '"></div><div class="lab">' + lab + '</div></div>';
     });
     html += '</div></div>';
 
@@ -1107,6 +1114,16 @@
       if (ke === 'ArrowLeft' && App.exam.idx > 0) { App.exam.idx -= 1; render(); return; }
       if (ke === 'ArrowRight' && App.exam.idx < App.exam.total - 1) { App.exam.idx += 1; render(); return; }
     }
+  });
+
+  var resizeTimer = null;
+  window.addEventListener('resize', function () {
+    if (App.page !== 'stats' && App.page !== 'banks') return;
+    if (resizeTimer) clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      resizeTimer = null;
+      if (App.page === 'stats' || App.page === 'banks') render();
+    }, 180);
   });
 
   /* ---------------- 启动 ---------------- */
