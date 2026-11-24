@@ -328,10 +328,16 @@
     App.practice = {
       questions: sess.questions, idx: 0, bank: sess.bank,
       mode: modeKey === 'back' ? 'back' : 'practice',
-      graded: {}, sel: '', fillText: '', results: [], title: sess.bank ? sess.bank.name : '练习',
+      graded: {}, drafts: {}, results: [], title: sess.bank ? sess.bank.name : '练习',
       label: modeKey === 'back' ? '背题模式' : (modeKey === 'random' ? '随机练习' : '顺序练习')
     };
     render();
+  }
+
+  /* 未提交的半截作答按题缓存，切题不丢失（原版 _show_question 恒传 selected=None） */
+  function draftOf(P, qid) {
+    if (!P.drafts[qid]) P.drafts[qid] = { sel: '', text: '' };
+    return P.drafts[qid];
   }
 
   function renderPracticeSession() {
@@ -339,6 +345,7 @@
     if (!P) return renderPracticeLauncher();
     var q = P.questions[P.idx];
     var graded = P.graded[q.id];
+    var draft = P.drafts[q.id] || { sel: '', text: '' };
     var back = P.mode === 'back';
     var answered = Object.keys(P.graded).length;
 
@@ -353,7 +360,7 @@
     html += '<div class="card q-card">' + questionHead(q, P.idx, P.questions.length);
     html += questionBody(q, {
       mode: back ? 'back' : 'practice',
-      sel: P.sel, graded: graded, fillText: P.fillText,
+      sel: graded ? graded.sel : draft.sel, graded: graded, fillText: draft.text,
       favorite: !!App.state.favs[q.id]
     });
     html += '<div class="row" style="margin-top:18px">' +
@@ -380,7 +387,7 @@
     updateCounters();
     var ta = document.getElementById('fill-input');
     if (ta && !graded) {
-      ta.addEventListener('input', function () { App.practice.fillText = ta.value; });
+      ta.addEventListener('input', function () { draftOf(App.practice, q.id).text = ta.value; });
     }
   }
 
@@ -469,15 +476,16 @@
     if (!P) return;
     var q = P.questions[P.idx];
     if (P.mode === 'back' || P.graded[q.id]) return;
+    var draft = draftOf(P, q.id);
     if (q.qtype === 'multiple') {
-      var cur = L.normalizeSelection(P.sel).split('');
+      var cur = L.normalizeSelection(draft.sel).split('');
       var i = cur.indexOf(letter);
       if (i >= 0) cur.splice(i, 1); else cur.push(letter);
-      P.sel = cur.sort().join('');
+      draft.sel = cur.sort().join('');
       render();
       return;
     }
-    P.sel = letter;
+    draft.sel = letter;
     confirmPractice();
   }
 
@@ -486,14 +494,15 @@
     if (!P) return;
     var q = P.questions[P.idx];
     if (P.graded[q.id]) return;
+    var draft = draftOf(P, q.id);
     if (q.qtype === 'fill') {
-      var text = (P.fillText || '').trim();
+      var text = (draft.text || '').trim();
       if (!text) { toast('请输入答案后再确认'); return; }
       P.graded[q.id] = { sel: text, ok: null };
       render();
       return;
     }
-    var sel = L.normalizeSelection(P.sel);
+    var sel = L.normalizeSelection(draft.sel);
     if (!sel) { toast('请先选择选项'); return; }
     var ok = L.gradeAnswer(q, sel);
     L.recordAnswer(App.state, q, sel, ok, 'practice');
@@ -537,8 +546,6 @@
     if (i < 0 || i >= P.questions.length) return;
     if (advanceTimer) { clearTimeout(advanceTimer); advanceTimer = null; }
     P.idx = i;
-    P.sel = '';
-    P.fillText = '';
     render();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -932,8 +939,8 @@
         var map2 = qOfMap();
         var qs2 = ids.map(function (id) { return map2[id]; }).filter(Boolean);
         if (!qs2.length) { route('exam'); return; }
-        App.practice = { questions: qs2, idx: 0, mode: 'back', graded: {}, sel: '', fillText: '',
-                         results: [], title: '错题复盘 · 背题模式', label: '背题模式', bank: null };
+        App.practice = { questions: qs2, idx: 0, mode: 'back', graded: {}, drafts: {}, results: [],
+                         title: '错题复盘 · 背题模式', label: '背题模式', bank: null };
         route('practice');
         return;
       }
@@ -943,8 +950,8 @@
         var map3 = qOfMap();
         var qs3 = ids2.map(function (id) { return map3[id]; }).filter(Boolean);
         if (!qs3.length) { toast('没有可用的题目'); return; }
-        App.practice = { questions: qs3, idx: 0, mode: 'back', graded: {}, sel: '', fillText: '',
-                         results: [], title: kind === 'wrong' ? '错题背题' : '收藏背题', label: '背题模式', bank: null };
+        App.practice = { questions: qs3, idx: 0, mode: 'back', graded: {}, drafts: {}, results: [],
+                         title: kind === 'wrong' ? '错题背题' : '收藏背题', label: '背题模式', bank: null };
         route('practice');
         return;
       }
@@ -954,16 +961,16 @@
         var map4 = qOfMap();
         var qs4 = ids3.map(function (id) { return map4[id]; }).filter(Boolean);
         if (!qs4.length) { toast('没有可练的题目'); return; }
-        App.practice = { questions: qs4, idx: 0, mode: 'practice', graded: {}, sel: '', fillText: '',
-                         results: [], title: kind2 === 'wrong' ? '错题重练' : '收藏练习', label: '练习', bank: null };
+        App.practice = { questions: qs4, idx: 0, mode: 'practice', graded: {}, drafts: {}, results: [],
+                         title: kind2 === 'wrong' ? '错题重练' : '收藏练习', label: '练习', bank: null };
         route('practice');
         return;
       }
       case 'list-open': {
         var q1 = qOf(Number(el.dataset.id));
         if (!q1) return;
-        App.practice = { questions: [q1], idx: 0, mode: 'back', graded: {}, sel: '', fillText: '',
-                         results: [], title: '背题', label: '背题模式', bank: null };
+        App.practice = { questions: [q1], idx: 0, mode: 'back', graded: {}, drafts: {}, results: [],
+                         title: '背题', label: '背题模式', bank: null };
         route('practice');
         return;
       }
