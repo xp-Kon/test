@@ -357,6 +357,37 @@ const INLINE_HTML = inlineHtml();
   click('[data-act="browse-type"][data-key="judge"]');
   await sleep(180);
 
+  /* ---------- 9c2. 看题进度记忆 ---------- */
+  click('[data-act="browse-next"]');
+  await sleep(220);
+  const savedBrowse = JSON.parse(window.localStorage.getItem('quizmaster.web.browse.v1') || 'null');
+  ok(savedBrowse && savedBrowse.pos > 0, '看题进度写入 localStorage', savedBrowse && savedBrowse.pos);
+  const posNow = text('.swipe-meta .num-chip');
+  const dom5 = new JSDOM(INLINE_HTML, {
+    url: 'https://xp-kon.github.io/test/', runScripts: 'dangerously',
+    pretendToBeVisual: true, virtualConsole: vc,
+    beforeParse(w) {
+      w.fetch = () => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(DATA) });
+      w.scrollTo = () => {};
+      w.localStorage.setItem('quizmaster.web.v1', JSON.stringify(persisted));
+      w.localStorage.setItem('quizmaster.web.browse.v1', JSON.stringify(savedBrowse));
+    }
+  });
+  const w5 = dom5.window;
+  await waitFor(() => w5.document.querySelectorAll('.stat').length === 5, 5000);
+  w5.document.querySelector('[data-nav="browse"]').dispatchEvent(new w5.MouseEvent('click', { bubbles: true }));
+  ok(await waitFor(() => w5.document.querySelector('#b-swipe'), 2500), '重进看题页可渲染');
+  const meta5 = w5.document.querySelector('.swipe-meta .num-chip').textContent.trim();
+  ok(meta5 === posNow, '看题位置已恢复到上次', posNow + ' / ' + meta5);
+  const kw5 = w5.document.querySelector('#b-kw');
+  ok(kw5 && kw5.value === savedBrowse.keyword, '搜索关键词一并恢复', kw5 && kw5.value);
+  const bank5 = w5.document.querySelector('#b-bank');
+  ok(bank5 && Number(bank5.value) === savedBrowse.bankId, '题库选择一并恢复', bank5 && bank5.value);
+  ok(!!w5.document.querySelector('[data-act="browse-first"]'), '提供「回到第 1 题」');
+  w5.document.querySelector('[data-act="browse-first"]').dispatchEvent(new w5.MouseEvent('click', { bubbles: true }));
+  await sleep(200);
+  ok(/第 1 \//.test(w5.document.querySelector('.swipe-meta .num-chip').textContent), '点回到第 1 题生效');
+
   /* ---------- 9d. 填空题分空作答 ---------- */
   click('[data-nav="practice"]');
   await waitFor(() => $('#p-bank'), 2500);

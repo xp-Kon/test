@@ -910,11 +910,49 @@
   }
 
 /* ---------------- 看题（带答案） ---------------- */
+
+  var BROWSE_KEY = 'quizmaster.web.browse.v1';
+
+  function saveBrowse() {
+    var B = App.browse;
+    if (!B) return;
+    try {
+      localStorage.setItem(BROWSE_KEY, JSON.stringify({
+        bankId: B.bankId, types: B.types || [], keyword: B.keyword || '',
+        scope: B.scope || 'all', showAnswer: B.showAnswer !== false,
+        pos: B.pos || 0, updatedAt: Date.now()
+      }));
+    } catch { /* 忽略存储异常 */ }
+  }
+
+  function loadBrowse() {
+    try {
+      var raw = localStorage.getItem(BROWSE_KEY);
+      if (!raw) return null;
+      var b = JSON.parse(raw);
+      if (!b || typeof b !== 'object') return null;
+      return b;
+    } catch { return null; }
+  }
+
   function browseState() {
     if (!App.browse) {
       var first = banks()[0];
-      App.browse = { bankId: first ? first.id : null, types: [], keyword: '', scope: 'all',
-                     showAnswer: true, pos: 0 };
+      var saved = loadBrowse();
+      if (saved) {
+        App.browse = {
+          bankId: saved.bankId != null ? saved.bankId : (first ? first.id : null),
+          types: Array.isArray(saved.types) ? saved.types : [],
+          keyword: saved.keyword || '',
+          scope: saved.scope || 'all',
+          showAnswer: saved.showAnswer !== false,
+          pos: Math.max(0, saved.pos || 0),
+          dir: ''
+        };
+      } else {
+        App.browse = { bankId: first ? first.id : null, types: [], keyword: '', scope: 'all',
+                       showAnswer: true, pos: 0, dir: '' };
+      }
     }
     var ids = banks().map(function (b) { return b.id; });
     if (ids.indexOf(App.browse.bankId) < 0) App.browse.bankId = ids.length ? ids[0] : null;
@@ -1028,6 +1066,7 @@
     if (next === B.pos) return;
     B.dir = delta > 0 ? 'next' : 'prev';
     B.pos = next;
+    saveBrowse();
     render();
     var shell = document.getElementById('b-swipe');
     if (shell) window.scrollTo({ top: shell.offsetTop - 80, behavior: 'smooth' });
@@ -1048,8 +1087,10 @@
 
     var html = '<div class="page-head"><div><div class="page-title">看题 · 带答案</div>' +
       '<div class="page-sub">整库连续浏览，答案与解析直接展开；当前 ' + all.length + ' 题' +
-      (B.keyword ? '（关键词：' + esc(B.keyword) + '）' : '') + '</div></div>' +
+      (B.keyword ? '（关键词：' + esc(B.keyword) + '）' : '') +
+      (B.pos > 0 ? ' · 已从上次位置继续（第 ' + (B.pos + 1) + ' 题）' : '') + '</div></div>' +
       '<div class="row">' +
+      (B.pos > 0 ? '<button class="btn ghost" data-act="browse-first">回到第 1 题</button>' : '') +
       '<button class="btn ghost" data-act="browse-answer">' + (B.showAnswer ? '隐藏答案' : '显示答案') + '</button>' +
       (all.length ? '<button class="btn primary" data-act="browse-practice">练这个范围</button>' : '') +
       '</div></div>';
@@ -1095,7 +1136,7 @@
 
     var sel = document.getElementById('b-bank');
     if (sel) sel.addEventListener('change', function () {
-      B.bankId = Number(sel.value); B.pos = 0; B.dir = ''; render();
+      B.bankId = Number(sel.value); B.pos = 0; B.dir = ''; saveBrowse(); render();
     });
     var kw = document.getElementById('b-kw');
     if (kw) {
@@ -1103,7 +1144,7 @@
       kw.addEventListener('input', function () {
         if (timer) clearTimeout(timer);
         timer = setTimeout(function () {
-          B.keyword = kw.value; B.pos = 0; B.dir = ''; render();
+          B.keyword = kw.value; B.pos = 0; B.dir = ''; saveBrowse(); render();
           var again = document.getElementById('b-kw');
           if (again) {
             again.focus();
@@ -1356,15 +1397,19 @@
         var bk = el.dataset.key;
         var pos = Bt.types.indexOf(bk);
         if (pos >= 0) Bt.types.splice(pos, 1); else Bt.types.push(bk);
-        Bt.pos = 0; Bt.dir = ''; render(); return;
+        Bt.pos = 0; Bt.dir = ''; saveBrowse(); render(); return;
       }
       case 'browse-scope': {
         var Bs = browseState();
-        Bs.scope = el.dataset.key; Bs.pos = 0; Bs.dir = ''; render(); return;
+        Bs.scope = el.dataset.key; Bs.pos = 0; Bs.dir = ''; saveBrowse(); render(); return;
       }
       case 'browse-answer': {
         var Ba = browseState();
-        Ba.showAnswer = !Ba.showAnswer; render(); return;
+        Ba.showAnswer = !Ba.showAnswer; saveBrowse(); render(); return;
+      }
+      case 'browse-first': {
+        var Bf = browseState();
+        Bf.pos = 0; Bf.dir = ''; saveBrowse(); render(); return;
       }
       case 'browse-prev': browseStep(-1); return;
       case 'browse-next': browseStep(1); return;
