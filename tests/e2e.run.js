@@ -293,17 +293,48 @@ const INLINE_HTML = inlineHtml();
   ok((persisted.records || []).length > 0, 'localStorage 已持久化作答记录', (persisted.records || []).length);
   ok((persisted.exams || []).length === 1, 'localStorage 已持久化考试记录');
 
-  /* ---------- 9c. 看题（带答案）模式 ---------- */
+  /* ---------- 9c. 看题（带答案）· 单题滑动 ---------- */
   click('[data-nav="browse"]');
-  await waitFor(() => $('.b-card'), 3000);
-  const bCards = $$('.b-card').length;
-  ok(bCards === 60, '看题页首屏渲染 60 题（分页加载）', bCards);
-  ok($$('.b-card .opt.correct').length > 0, '看题页选项高亮正确答案');
-  ok($$('.b-card .result-line').length > 0, '看题页显示答案行');
+  ok(await waitFor(() => $('#b-swipe'), 3000), '看题页渲染单题滑动容器');
+  ok($$('.b-card').length === 1, '看题页一次只显示一题', $$('.b-card').length);
+  const meta0 = text('.swipe-meta .num-chip');
+  ok(/第 1 \/ \d+ 题/.test(meta0), '显示题号指示', meta0);
+  ok($$('.b-card .opt.correct').length > 0, '选项高亮正确答案');
+  ok($$('.b-card .result-line').length > 0, '显示答案行');
+  const stem0 = text('.b-card .stem');
+  click('[data-act="browse-next"]');
+  await sleep(220);
+  const meta1 = text('.swipe-meta .num-chip');
+  ok(meta1 !== meta0, '点「下一题」切题', meta0 + ' -> ' + meta1);
+  ok(text('.b-card .stem') !== stem0, '题干随之切换');
+  window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+  await sleep(180);
+  ok(text('.swipe-meta .num-chip') !== meta1, '方向键 → 也能切题');
+  // 触摸左滑
+  const shell = $('#b-swipe');
+  const beforeSwipe = text('.swipe-meta .num-chip');
+  const t1 = new window.Event('touchstart', { bubbles: true });
+  t1.changedTouches = [{ clientX: 320, clientY: 300 }];
+  shell.dispatchEvent(t1);
+  const t2 = new window.Event('touchend', { bubbles: true });
+  t2.changedTouches = [{ clientX: 140, clientY: 305 }];
+  shell.dispatchEvent(t2);
+  await sleep(220);
+  ok(text('.swipe-meta .num-chip') !== beforeSwipe, '手指左滑切到下一题', beforeSwipe + ' -> ' + text('.swipe-meta .num-chip'));
+  // 右滑回上一题
+  const beforeBack = text('.swipe-meta .num-chip');
+  const t3 = new window.Event('touchstart', { bubbles: true });
+  t3.changedTouches = [{ clientX: 120, clientY: 300 }];
+  shell.dispatchEvent(t3);
+  const t4 = new window.Event('touchend', { bubbles: true });
+  t4.changedTouches = [{ clientX: 320, clientY: 305 }];
+  shell.dispatchEvent(t4);
+  await sleep(220);
+  ok(text('.swipe-meta .num-chip') !== beforeBack, '手指右滑回到上一题');
   // 隐藏答案
   click('[data-act="browse-answer"]');
-  await sleep(200);
-  ok($$('.b-card .result-line').length === 0, '隐藏答案后不再显示答案行');
+  await sleep(180);
+  ok($$('.b-card .result-line').length === 0, '隐藏答案后不显示答案行');
   click('[data-act="browse-answer"]');
   await sleep(150);
   // 关键词搜索
@@ -312,16 +343,19 @@ const INLINE_HTML = inlineHtml();
   kwEl.value = '分词';
   kwEl.dispatchEvent(new window.Event('input', { bubbles: true }));
   await sleep(420);
-  const afterKw = $$('.b-card').length;
-  ok(afterKw > 0 && afterKw < 60, '搜索后题目数减少', afterKw);
-  // 题型筛选：只看判断
+  const kwMeta = text('.swipe-meta .num-chip');
+  const kwTotal = Number((kwMeta.match(/\/ (\d+) 题/) || [0, 0])[1]);
+  ok(kwTotal > 0 && kwTotal < 60, '搜索后结果条数减少', kwMeta);
+  ok(/第 1 \//.test(kwMeta), '搜索后回到第 1 题', kwMeta);
+  // 题型筛选
   click('[data-act="browse-type"][data-key="judge"]');
-  await sleep(220);
-  const judgeBadges = $$('.b-card .badge').filter(e => e.textContent.indexOf('判断') >= 0).length;
-  ok(judgeBadges === $$('.b-card').length, '题型筛选后只剩判断题', judgeBadges + '/' + $$('.b-card').length);
-  // 重置
+  await sleep(250);
+  const judgeMeta = text('.swipe-meta .num-chip');
+  const judgeTotal = Number((judgeMeta.match(/\/ (\d+) 题/) || [0, 0])[1]);
+  ok($$('.b-card .badge').length && text('.b-card .badge').indexOf('判断') >= 0, '筛选后当前题为判断题', text('.b-card .badge'));
+  ok(judgeTotal > 0 && judgeTotal < kwTotal, '叠加题型筛选后条数更少', judgeMeta);
   click('[data-act="browse-type"][data-key="judge"]');
-  await sleep(150);
+  await sleep(180);
 
   /* ---------- 9d. 填空题分空作答 ---------- */
   click('[data-nav="practice"]');

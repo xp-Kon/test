@@ -914,7 +914,7 @@
     if (!App.browse) {
       var first = banks()[0];
       App.browse = { bankId: first ? first.id : null, types: [], keyword: '', scope: 'all',
-                     showAnswer: true, limit: 60 };
+                     showAnswer: true, pos: 0 };
     }
     var ids = banks().map(function (b) { return b.id; });
     if (ids.indexOf(App.browse.bankId) < 0) App.browse.bankId = ids.length ? ids[0] : null;
@@ -991,10 +991,54 @@
     return html + '</div>';
   }
 
+
+  /* 看题模式：左右滑动换题（触摸/拖拽均可），并支持 ← → 键 */
+  function bindSwipe() {
+    var shell = document.getElementById('b-swipe');
+    if (!shell) return;
+    var startX = 0, startY = 0, tracking = false;
+    function down(x, y) { startX = x; startY = y; tracking = true; }
+    function up(x, y) {
+      if (!tracking) return;
+      tracking = false;
+      var dx = x - startX, dy = y - startY;
+      if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
+      if (dx < 0) browseStep(1); else browseStep(-1);
+    }
+    shell.addEventListener('touchstart', function (ev) {
+      var t = ev.changedTouches[0];
+      down(t.clientX, t.clientY);
+    }, { passive: true });
+    shell.addEventListener('touchend', function (ev) {
+      var t = ev.changedTouches[0];
+      up(t.clientX, t.clientY);
+    }, { passive: true });
+    shell.addEventListener('mousedown', function (ev) {
+      if (ev.target.closest('button')) return;
+      down(ev.clientX, ev.clientY);
+    });
+    shell.addEventListener('mouseup', function (ev) { up(ev.clientX, ev.clientY); });
+  }
+
+  function browseStep(delta) {
+    var B = browseState();
+    var all = browseQuestions();
+    if (!all.length) return;
+    var next = Math.min(Math.max(0, B.pos + delta), all.length - 1);
+    if (next === B.pos) return;
+    B.dir = delta > 0 ? 'next' : 'prev';
+    B.pos = next;
+    render();
+    var shell = document.getElementById('b-swipe');
+    if (shell) window.scrollTo({ top: shell.offsetTop - 80, behavior: 'smooth' });
+  }
+
   function renderBrowse() {
     var B = browseState();
     var all = browseQuestions();
-    var shown = all.slice(0, B.limit);
+    if (B.pos > all.length - 1) B.pos = Math.max(0, all.length - 1);
+    if (B.pos < 0) B.pos = 0;
+    var cur = all.length ? all[B.pos] : null;
     var counts = { single: 0, multiple: 0, judge: 0, fill: 0 };
     all.forEach(function (q) { if (counts[q.qtype] !== undefined) counts[q.qtype] += 1; });
 
@@ -1025,24 +1069,33 @@
       chip('browse-scope', 'wrong', '只看错题', B.scope === 'wrong') +
       chip('browse-scope', 'fav', '只看收藏', B.scope === 'fav') +
       '<div class="spacer"></div>' +
-      '<span class="muted">已显示 ' + shown.length + ' / ' + all.length + '</span>' +
+      '<span class="muted">共 ' + all.length + ' 题</span>' +
       '</div></div>';
 
     if (!all.length) {
       html += '<div class="empty"><b>没有匹配的题目</b>换个题库、题型或关键词试试</div>';
     } else {
-      shown.forEach(function (q, i) { html += browseCard(q, i); });
-      if (all.length > shown.length) {
-        html += '<div class="row" style="justify-content:center;margin-top:14px">' +
-          '<button class="btn ghost" data-act="browse-more">加载更多（还有 ' + (all.length - shown.length) + ' 题）</button></div>';
-      }
+      html += '<div class="swipe-shell" id="b-swipe" data-dir="' + (B.dir || '') + '">' +
+        '<button class="swipe-arrow left" data-act="browse-prev" ' + (B.pos <= 0 ? 'disabled' : '') + ' aria-label="上一题">‹</button>' +
+        '<div class="swipe-stage">' +
+        '<div class="swipe-meta"><span class="num-chip">第 ' + (B.pos + 1) + ' / ' + all.length + ' 题</span>' +
+        '<span class="muted">左右滑动换题 · 键盘 ← →</span></div>' +
+        browseCard(cur, B.pos) +
+        '</div>' +
+        '<button class="swipe-arrow right" data-act="browse-next" ' + (B.pos >= all.length - 1 ? 'disabled' : '') + ' aria-label="下一题">›</button>' +
+        '</div>' +
+        '<div class="row" style="justify-content:center;margin-top:12px;gap:10px">' +
+        '<button class="btn ghost" data-act="browse-prev" ' + (B.pos <= 0 ? 'disabled' : '') + '>← 上一题</button>' +
+        '<button class="btn primary" data-act="browse-next" ' + (B.pos >= all.length - 1 ? 'disabled' : '') + '>下一题 →</button>' +
+        '</div>';
     }
     main.innerHTML = html;
     updateCounters();
+    bindSwipe();
 
     var sel = document.getElementById('b-bank');
     if (sel) sel.addEventListener('change', function () {
-      B.bankId = Number(sel.value); B.limit = 60; render();
+      B.bankId = Number(sel.value); B.pos = 0; B.dir = ''; render();
     });
     var kw = document.getElementById('b-kw');
     if (kw) {
@@ -1050,7 +1103,7 @@
       kw.addEventListener('input', function () {
         if (timer) clearTimeout(timer);
         timer = setTimeout(function () {
-          B.keyword = kw.value; B.limit = 60; render();
+          B.keyword = kw.value; B.pos = 0; B.dir = ''; render();
           var again = document.getElementById('b-kw');
           if (again) {
             again.focus();
@@ -1303,20 +1356,18 @@
         var bk = el.dataset.key;
         var pos = Bt.types.indexOf(bk);
         if (pos >= 0) Bt.types.splice(pos, 1); else Bt.types.push(bk);
-        Bt.limit = 60; render(); return;
+        Bt.pos = 0; Bt.dir = ''; render(); return;
       }
       case 'browse-scope': {
         var Bs = browseState();
-        Bs.scope = el.dataset.key; Bs.limit = 60; render(); return;
+        Bs.scope = el.dataset.key; Bs.pos = 0; Bs.dir = ''; render(); return;
       }
       case 'browse-answer': {
         var Ba = browseState();
         Ba.showAnswer = !Ba.showAnswer; render(); return;
       }
-      case 'browse-more': {
-        var Bm = browseState();
-        Bm.limit += 60; render(); return;
-      }
+      case 'browse-prev': browseStep(-1); return;
+      case 'browse-next': browseStep(1); return;
       case 'browse-fav': {
         var favOn = L.toggleFav(App.state, Number(el.dataset.id));
         save(); toast(favOn ? '已加入收藏' : '已取消收藏'); render(); return;
@@ -1428,6 +1479,10 @@
       }
       if (k === 'ArrowLeft') { ev.preventDefault(); gotoIdx(App.practice.idx - 1); return; }
       if (k === 'ArrowRight') { ev.preventDefault(); nextQuestion(); return; }
+    }
+    if (App.page === 'browse') {
+      if (ev.key === 'ArrowLeft') { ev.preventDefault(); browseStep(-1); return; }
+      if (ev.key === 'ArrowRight') { ev.preventDefault(); browseStep(1); return; }
     }
     if (App.page === 'exam' && App.exam) {
       var ke = ev.key;

@@ -607,6 +607,31 @@ table.data td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .blank-ref { font-size: 12.5px; }
 }
 
+
+/* ---------------- 看题单题滑动 ---------------- */
+.swipe-shell { display: flex; align-items: stretch; gap: 8px; }
+.swipe-stage { flex: 1; min-width: 0; touch-action: pan-y; animation: swipeIn .22s ease-out; }
+.swipe-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.swipe-arrow {
+  flex: none; width: 42px; border: 1.5px solid var(--line); border-radius: 12px;
+  background: #fff; color: var(--ink2); font-size: 26px; line-height: 1;
+  display: grid; place-items: center;
+}
+.swipe-arrow:hover:not(:disabled) { border-color: var(--primary); color: var(--primary-d); background: #FAFAFF; }
+.swipe-arrow:disabled { opacity: .35; cursor: not-allowed; }
+@keyframes swipeIn { from { opacity: 0; transform: translateX(var(--slide, 16px)); } }
+.swipe-shell[data-dir="prev"] .swipe-stage { --slide: -16px; }
+.swipe-shell[data-dir="next"] .swipe-stage { --slide: 16px; }
+.swipe-shell .b-card { margin-bottom: 0; }
+.swipe-hint { display: none; }
+
+@media (max-width: 760px) {
+  .swipe-arrow { display: none; }
+  .swipe-shell { gap: 0; }
+  .swipe-hint { display: inline; }
+  .swipe-stage { animation-duration: .18s; }
+}
+
 /* ---------------- 桌面/移动双布局 ---------------- */
 .mob-only { display: none; }
 
