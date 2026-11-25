@@ -499,6 +499,31 @@ const INLINE_HTML = inlineHtml();
   ok(w3.document.querySelectorAll('.mob-list .mob-card').length >= 1, '窄屏：按题库为移动卡片');
   ok(w3.document.querySelectorAll('.desk-only').length >= 1, '窄屏：桌面容器仍在 DOM（由 CSS 隐藏）');
 
+  /* ---------- 9f. 错题重练：全部答对后「完成练习」必须有响应 ---------- */
+  const st6 = window.__quiz.state;
+  const wq = window.__quiz.data.banks[0].questions.filter(q => q.qtype === 'single').slice(0, 2);
+  wq.forEach(q => L.recordAnswer(st6, q, (q.answer === 'A' ? 'B' : 'A'), false, 'practice'));
+  L.saveState(window.localStorage, st6);
+  click('[data-nav="wrong"]');
+  await sleep(250);
+  click('[data-act="list-practice"]');
+  await sleep(250);
+  const P6 = window.__quiz.practice;
+  ok(P6 && P6.questions.length >= 2, '错题重练会话已建立', P6 && P6.questions.length);
+  for (let i = 0; i < P6.questions.length; i++) {
+    const q = P6.questions[P6.idx];
+    const right = q.qtype === 'judge' ? (q.answer === '对' ? 'A' : 'B') : q.answer.split('')[0];
+    window.document.dispatchEvent(new window.KeyboardEvent('keydown', { key: right, bubbles: true }));
+    await sleep(820);
+  }
+  ok(!!$('[data-act="finish-practice"]'), '最后一题答对后仍停留在题目页');
+  click('[data-act="finish-practice"]');
+  await sleep(320);
+  ok(!!$('.mask') && /本次练习完成/.test(text('.modal header')), '点击完成练习弹出练习总结', text('.modal header'));
+  const closeBtn = $('[data-act="close-practice-result"]');
+  if (closeBtn) { click(closeBtn); await sleep(200); }
+  ok(!!$('#p-bank'), '关闭总结后回到练习启动器');
+
   /* ---------- 汇总 ---------- */
   ok(jsErrors.length === 0, '无 JS 运行时错误', jsErrors.slice(0, 3).join(' | '));
   console.log('PASS ' + pass + ' FAIL ' + fail);

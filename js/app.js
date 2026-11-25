@@ -695,8 +695,9 @@
     advanceTimer = setTimeout(function () {
       advanceTimer = null;
       if (App.practice !== P || P.idx !== idx || App.page !== 'practice') return;
-      if (P.idx >= P.questions.length - 1) finishPractice();
-      else gotoIdx(P.idx + 1);
+      // 最后一题答对后不自动收尾，留在原地等用户点「完成练习」，避免结果弹窗"抢先"出现
+      if (P.idx >= P.questions.length - 1) return;
+      gotoIdx(P.idx + 1);
     }, 700);
   }
 
@@ -735,7 +736,12 @@
 
   function finishPractice() {
     var P = App.practice;
-    if (!P) return;
+    if (!P) {
+      // 会话已结束（例如最后一题答对后自动收尾、又点了残留的「完成练习」按钮）
+      // 不能再静默 return，否则用户看到的就是「点了没反应」
+      if (App.page === 'practice') render();
+      return;
+    }
     var results = P.results;
     var ok = results.filter(function (r) { return r.ok; }).length;
     var bad = results.filter(function (r) { return r.ok === false; }).length;
@@ -752,6 +758,7 @@
       '<button class="btn primary" data-act="close-practice-result">回到练习首页</button></footer></div>');
     App.practice = null;
     clearSession();
+    if (App.page === 'practice') render();   // 背后的页面切回启动器，避免残留旧按钮
     updateCounters();
   }
 
