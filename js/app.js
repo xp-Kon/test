@@ -591,8 +591,8 @@
   /* 填空题参考答案：多空时逐空对照，单空时原样展示 */
   function blankRefBox(q, graded, refParts, nBlank, multiBlank) {
     var html = '';
-    if (multiBlank) {
-      var total = Math.max(refParts.length, nBlank);
+    if (multiBlank && refParts.length >= 2) {
+      var total = refParts.length;
       html += '<div class="analysis" style="background:#fff;border-style:dashed"><div class="h">参考答案 · 共 ' + total + ' 空</div>';
       for (var i = 0; i < total; i++) {
         var userPart = (graded && graded.parts ? graded.parts[i] : '') || '';
@@ -604,6 +604,12 @@
           '</div>';
       }
       html += '</div>';
+      if (total < nBlank) {
+        html += '<div class="muted" style="margin-top:6px">题干识别到 ' + nBlank + ' 个空，参考答案只分出 ' + total + ' 段，已按参考答案展示</div>';
+      }
+    } else if (multiBlank) {
+      html += '<div class="analysis" style="background:#fff;border-style:dashed"><div class="h">参考答案</div>' + esc(answerText(q)) +
+        '<div class="muted" style="margin-top:6px">该题答案未按空分点，整段展示</div></div>';
     } else {
       html += '<div class="analysis" style="background:#fff;border-style:dashed"><div class="h">参考答案</div>' + esc(answerText(q)) + '</div>';
     }
@@ -996,7 +1002,7 @@
 
     if (q.qtype === 'fill') {
       var refParts = L.splitFillAnswer(q.answer);
-      var nB = Math.max(L.blankCount(q.stem), refParts.length);
+      var nB = refParts.length;
       if (B.showAnswer) {
         if (nB >= 2) {
           html += '<div class="analysis" style="background:#fff;border-style:dashed"><div class="h">参考答案 · 共 ' + nB + ' 空</div>';

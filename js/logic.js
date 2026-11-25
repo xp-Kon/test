@@ -568,19 +568,37 @@
   /* ---------------- 填空题：分空 ---------------- */
 
   /** 题干里有几个空：___1___ / ____ / （1） / 第1空，取最大值，至少 1 */
+/** 题干里有几个空：___1___ / ____ / （1） / 第1空；带编号时按去重编号计数 */
   function blankCount(stem) {
     var s = String(stem || '');
     var n = 0;
-    var m1 = s.match(/(?:_{2,}\s*\d*\s*_{0,})|(?:＿{2,})|(?:\[\s*\]|【\s*】)/g);
-    if (m1) n = Math.max(n, m1.length);
-    var m2 = s.match(/[（(]\s*\d{1,2}\s*[）)]/g);
-    if (m2) n = Math.max(n, m2.length);
-    var m3 = s.match(/第\s*\d{1,2}\s*[空处]/g);
-    if (m3) n = Math.max(n, m3.length);
+    var nums = [], m;
+    var re = /_{2,}\s*(\d{1,2})\s*_{0,}/g;
+    while ((m = re.exec(s)) !== null) nums.push(Number(m[1]));
+    var plain = s.match(/_{2,}|＿{2,}/g);
+    if (nums.length) {
+      var seen = {};
+      nums.forEach(function (x) { seen[x] = 1; });
+      n = Math.max(n, Object.keys(seen).length, Math.max.apply(null, nums));
+    } else if (plain) {
+      n = Math.max(n, plain.length);
+    }
+    var paren = s.match(/[（(]\s*(\d{1,2})\s*[）)]/g);
+    if (paren) {
+      var mx = 0;
+      paren.forEach(function (t) { var d = t.match(/\d{1,2}/); if (d) mx = Math.max(mx, Number(d[0])); });
+      n = Math.max(n, mx);
+    }
+    var di = s.match(/第\s*(\d{1,2})\s*[空处]/g);
+    if (di) {
+      var mx2 = 0;
+      di.forEach(function (t) { var d = t.match(/\d{1,2}/); if (d) mx2 = Math.max(mx2, Number(d[0])); });
+      n = Math.max(n, mx2);
+    }
     return Math.max(n, 1);
   }
 
-  /** 标准答案拆成逐空答案：先去序号，再按分号切 */
+/** 标准答案拆成逐空答案：识别 ①②③ / （1） / 分号 / 换行 等分点方式 */
   function splitFillAnswer(answer) {
     var a = String(answer || '').trim();
     if (!a) return [];
@@ -589,12 +607,26 @@
         .replace(/^[（(]\s*\d{1,2}\s*[）)]\s*/, '')
         .replace(/^\d{1,2}\s*[.、:：]\s*/, '')
         .replace(/^[①②③④⑤⑥⑦⑧⑨⑩]\s*/, '')
+        .replace(/^[-–—·•]\s*/, '')
+        .replace(/[；;、，,\s]+$/, '')
         .trim();
     };
-    var parts = a.split(/[;；]/).map(function (t) { return t.trim(); }).filter(function (t) { return t !== ''; });
-    if (parts.length <= 1) {
-      var byNo = a.split(/[（(]\s*\d{1,2}\s*[）)]/).map(function (t) { return t.trim(); }).filter(function (t) { return t !== ''; });
-      if (byNo.length > 1) parts = byNo;
+    var parts;
+    if (/[\r\n]/.test(a)) {
+      parts = a.split(/[\r\n]+/);
+    } else if (/[①②③④⑤⑥⑦⑧⑨⑩]/.test(a)) {
+      parts = a.split(/[①②③④⑤⑥⑦⑧⑨⑩]/);
+    } else if (/[（(]\s*\d{1,2}\s*[）)]/.test(a.slice(1))) {
+      parts = a.split(/[（(]\s*\d{1,2}\s*[）)]/);
+    } else if (/[;；]/.test(a)) {
+      parts = a.split(/[;；]/);
+    } else {
+      parts = [a];
+    }
+    parts = parts.map(function (t) { return t.trim(); }).filter(function (t) { return t !== ''; });
+    if (parts.length <= 1 && /[、，,]/.test(a) && a.length <= 160) {
+      var alt = a.split(/[、，,]/).map(function (t) { return t.trim(); }).filter(function (t) { return t !== ''; });
+      if (alt.length > 1) parts = alt;
     }
     return parts.map(strip).filter(function (t) { return t !== ''; });
   }
