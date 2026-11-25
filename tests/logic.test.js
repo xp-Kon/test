@@ -160,6 +160,20 @@ if (fs.existsSync(dataPath)) {
   eq(byType.fill, 230, '数据-填空/简答 230');
 }
 
+
+/* ---------- 7. 填空题分空 ---------- */
+eq(L.blankCount('基于特征的匹配首先提取图像中的_________（如SIFT）并_____匹配'), 2, '分空-下划线计数');
+eq(L.blankCount('空域滤波是在___1___对图像像素操作，频域滤波在___2___'), 2, '分空-编号下划线');
+eq(L.blankCount('突变'), 1, '分空-无空位按 1');
+eq(L.blankCount('（1）甲（2）乙（3）丙'), 3, '分空-括号编号');
+eq(L.splitFillAnswer('（1）局部特征点；（2）最近邻搜索'), ['局部特征点', '最近邻搜索'], '分空-去序号并切分');
+eq(L.splitFillAnswer('突变'), ['突变'], '分空-单答案');
+eq(L.splitFillAnswer('（1）甲（2）乙'), ['甲', '乙'], '分空-仅括号编号也可切');
+ok(L.fillPartsEqual('局部特征点 ', '局部特征点'), '分空-忽略空格判等');
+ok(L.fillPartsEqual('“局部特征点”', '局部特征点'), '分空-忽略引号判等');
+ok(!L.fillPartsEqual('最近邻', '最近邻搜索'), '分空-不完全一致为假');
+ok(!L.fillPartsEqual('', ''), '分空-双空不算通过');
+
 /* ---------- 输出 ---------- */
 console.log('PASS ' + pass + ' FAIL ' + fail);
 if (fail) {

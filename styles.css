@@ -27,6 +27,8 @@
 
 * { box-sizing: border-box; }
 
+html, body { max-width: 100%; overflow-x: hidden; }
+
 html, body {
   margin: 0;
   height: 100%;
@@ -43,11 +45,14 @@ button { cursor: pointer; }
 /* ---------------- 布局 ---------------- */
 .app {
   display: grid;
-  grid-template-columns: 236px 1fr;
+  grid-template-columns: 236px minmax(0, 1fr);
   min-height: 100vh;
+  max-width: 100%;
 }
 
 .sidebar {
+  min-width: 0;
+  max-width: 100%;
   background: linear-gradient(180deg, var(--side1), var(--side2));
   padding: 22px 14px;
   display: flex;
@@ -100,6 +105,7 @@ button { cursor: pointer; }
 .side-version { margin-top: auto; color: #6E67B8; font-size: 11px; padding: 8px 10px; }
 
 .main {
+  min-width: 0;
   padding: 26px 30px 40px;
   overflow-y: auto;
   height: 100vh;
@@ -462,36 +468,44 @@ table.data td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ---------------- 移动端 ---------------- */
 @media (max-width: 760px) {
-  .app { grid-template-columns: 1fr; }
+  .app { grid-template-columns: minmax(0, 1fr); }
 
   /* 侧栏改为可横向滚动的当前栏，不占竖向空间 */
   .sidebar {
     position: sticky;
     top: 0;
     z-index: 20;
-    height: auto;
+    height: 56px;
+    min-height: 56px;
+    max-height: 56px;
     flex-direction: row;
     flex-wrap: nowrap;
     align-items: center;
     gap: 6px;
-    padding: 8px 10px;
+    padding: 0 10px;
     overflow-x: auto;
+    overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    contain: layout paint;
   }
   .sidebar::-webkit-scrollbar { display: none; }
-  .logo { padding: 0 8px 0 2px; flex: none; display: flex; align-items: baseline; gap: 6px; }
+  .logo { padding: 0 8px 0 2px; flex: 0 0 auto; display: flex; align-items: baseline; gap: 6px; height: 36px; overflow: hidden; }
   .logo-title { font-size: 15px; letter-spacing: 0; }
   .logo-sub { font-size: 10px; margin: 0; }
   .nav-btn {
-    flex: none;
+    flex: 0 0 auto;
     width: auto;
-    padding: 8px 11px;
+    padding: 0 11px;
+    height: 36px;
+    line-height: 36px;
     font-size: 13px;
     border-radius: 9px;
     white-space: nowrap;
-    min-height: 38px;
+    overflow: hidden;
   }
+  .nav-btn > span { display: inline-block; line-height: 36px; vertical-align: middle; }
+  .nav-btn .nav-count { line-height: 16px; vertical-align: middle; }
   .nav-btn .ico { display: none; }
   .nav-count { margin-left: 4px; font-size: 10px; padding: 0 5px; }
   .side-version { display: none; }
@@ -551,6 +565,46 @@ table.data td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .stat-row { grid-template-columns: 1fr 1fr; }
   .nav-grid { grid-template-columns: repeat(6, 1fr); }
   .logo-sub { display: none; }
+}
+
+
+/* ---------------- 看题模式 / 填空题分空 ---------------- */
+.browse-bar { display: grid; grid-template-columns: 260px 1fr; gap: 12px; align-items: end; }
+.chip-btn {
+  border: 1.5px solid var(--line); background: #fff; color: var(--ink2);
+  border-radius: 999px; padding: 6px 13px; font-size: 12.5px; font-weight: 600;
+}
+.chip-btn:hover { border-color: #C7CBF0; }
+.chip-btn.on { border-color: var(--primary); background: var(--primary-l); color: var(--primary-d); }
+.b-card { margin-bottom: 12px; }
+.b-card .opt { cursor: default; }
+.b-card .opt.muted { opacity: .8; }
+
+.blank-list { display: flex; flex-direction: column; gap: 10px; }
+.blank-row { display: flex; align-items: center; gap: 10px; }
+.blank-no { flex: none; font-size: 12px; font-weight: 700; color: var(--ink2); white-space: nowrap; }
+.blank-input {
+  flex: 1; min-width: 0; border: 1.5px solid var(--line); border-radius: 10px;
+  padding: 10px 12px; font-size: 15px; color: var(--ink); outline: none; background: #fff;
+}
+.blank-input:focus { border-color: var(--primary); }
+.blank-ref {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 13px;
+}
+.blank-ref:last-child { border-bottom: 0; }
+.blank-ans { font-weight: 600; color: var(--ink); }
+.blank-mark { font-size: 12px; font-weight: 700; }
+.blank-mark.ok { color: var(--green); }
+.blank-mark.bad { color: var(--red); }
+
+@media (max-width: 900px) {
+  .browse-bar { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .blank-row { flex-wrap: wrap; }
+  .blank-input { font-size: 16px; }
+  .blank-ref { font-size: 12.5px; }
 }
 
 /* ---------------- 桌面/移动双布局 ---------------- */

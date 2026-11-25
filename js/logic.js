@@ -93,7 +93,7 @@
       if (!s.wrong || typeof s.wrong !== 'object') s.wrong = {};
       if (!s.favs || typeof s.favs !== 'object') s.favs = {};
       return s;
-    } catch (e) {
+    } catch {
       return emptyState();
     }
   }
@@ -105,7 +105,7 @@
       }
       backend.setItem(STORE_KEY, JSON.stringify(state));
       return true;
-    } catch (e) {
+    } catch {
       return false;
     }
   }
@@ -216,7 +216,6 @@
       var key = bid + ':' + r.qid;
       if (!seen[key]) { seen[key] = 1; st.practiced += 1; }
     });
-    var wrongBank = {};
     Object.keys(state.wrong).forEach(function (qid) {
       var w = state.wrong[qid];
       if (w.resolved) return;
@@ -565,6 +564,53 @@
     return out;
   }
 
+
+  /* ---------------- 填空题：分空 ---------------- */
+
+  /** 题干里有几个空：___1___ / ____ / （1） / 第1空，取最大值，至少 1 */
+  function blankCount(stem) {
+    var s = String(stem || '');
+    var n = 0;
+    var m1 = s.match(/(?:_{2,}\s*\d*\s*_{0,})|(?:＿{2,})|(?:\[\s*\]|【\s*】)/g);
+    if (m1) n = Math.max(n, m1.length);
+    var m2 = s.match(/[（(]\s*\d{1,2}\s*[）)]/g);
+    if (m2) n = Math.max(n, m2.length);
+    var m3 = s.match(/第\s*\d{1,2}\s*[空处]/g);
+    if (m3) n = Math.max(n, m3.length);
+    return Math.max(n, 1);
+  }
+
+  /** 标准答案拆成逐空答案：先去序号，再按分号切 */
+  function splitFillAnswer(answer) {
+    var a = String(answer || '').trim();
+    if (!a) return [];
+    var strip = function (t) {
+      return String(t)
+        .replace(/^[（(]\s*\d{1,2}\s*[）)]\s*/, '')
+        .replace(/^\d{1,2}\s*[.、:：]\s*/, '')
+        .replace(/^[①②③④⑤⑥⑦⑧⑨⑩]\s*/, '')
+        .trim();
+    };
+    var parts = a.split(/[;；]/).map(function (t) { return t.trim(); }).filter(function (t) { return t !== ''; });
+    if (parts.length <= 1) {
+      var byNo = a.split(/[（(]\s*\d{1,2}\s*[）)]/).map(function (t) { return t.trim(); }).filter(function (t) { return t !== ''; });
+      if (byNo.length > 1) parts = byNo;
+    }
+    return parts.map(strip).filter(function (t) { return t !== ''; });
+  }
+
+  function normFill(t) {
+    return String(t === null || t === undefined ? '' : t)
+      .toLowerCase()
+      .replace(/[\s，,。.；;：:、"'“”‘’()（）\[\]【】]/g, '');
+  }
+
+  /** 单个空是否与参考答案一致（仅作提示，最终仍由用户自评） */
+  function fillPartsEqual(user, ref) {
+    var a = normFill(user), b = normFill(ref);
+    return a !== '' && b !== '' && a === b;
+  }
+
   return {
     SINGLE: SINGLE, MULTIPLE: MULTIPLE, JUDGE: JUDGE, FILL: FILL,
     TYPE_NAMES: TYPE_NAMES, TYPE_COLORS: TYPE_COLORS, LETTERS: LETTERS,
@@ -580,6 +626,7 @@
     overview: overview, dailyActivity: dailyActivity, accuracyByBank: accuracyByBank,
     typeDistribution: typeDistribution, streakDays: streakDays,
     shuffle: shuffle, buildSession: buildSession,
+    blankCount: blankCount, splitFillAnswer: splitFillAnswer, fillPartsEqual: fillPartsEqual,
     questionsFromRows: questionsFromRows, parseDelimited: parseDelimited,
     normAnswer: normAnswer, normType: normType, dedupe: dedupe
   };

@@ -18,7 +18,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function waitFor(fn, ms = 3000, step = 40) {
   const t0 = Date.now();
   while (Date.now() - t0 < ms) {
-    try { if (fn()) return true; } catch (e) {}
+    try { if (fn()) return true; } catch { /* not ready */ }
     await sleep(step);
   }
   return false;
@@ -27,7 +27,7 @@ async function waitFor(fn, ms = 3000, step = 40) {
 /* jsdom 31 不再导出 ResourceLoader：把外链脚本内联进 HTML 再执行 */
 function inlineHtml() {
   let out = fs.readFileSync(path.join(SITE, 'index.html'), 'utf8');
-  out = out.replace(/<script src="([^"]+)"><\/script>/g, (m, src) => {
+  out = out.replace(/<script src="([^"]+)"><\/script>/g, (_m, src) => {
     const file = path.join(SITE, src.replace(/^\.\//, ''));
     return '<script>' + fs.readFileSync(file, 'utf8') + '</script>';
   });
@@ -56,7 +56,7 @@ const INLINE_HTML = inlineHtml();
       };
       window.scrollTo = () => {};
       window.confirm = () => true;
-      window.prompt = (msg, def) => def + 'X';
+      window.prompt = (_msg, def) => def + 'X';
     }
   });
 
@@ -94,7 +94,6 @@ const INLINE_HTML = inlineHtml();
   /* ---------- 3. 答对自动下一题 ---------- */
   function currentQIndexLabel() { return text('.page-head .num-chip'); }
   // 找一道单选题，用快捷键作答（A-H）
-  const firstStem = text('.stem');
   // 从题库里按题干定位当前题
   function currentQuestion() {
     const stems = Object.keys(allQ).map(id => allQ[id]);
@@ -294,6 +293,105 @@ const INLINE_HTML = inlineHtml();
   ok((persisted.records || []).length > 0, 'localStorage 已持久化作答记录', (persisted.records || []).length);
   ok((persisted.exams || []).length === 1, 'localStorage 已持久化考试记录');
 
+  /* ---------- 9c. 看题（带答案）模式 ---------- */
+  click('[data-nav="browse"]');
+  await waitFor(() => $('.b-card'), 3000);
+  const bCards = $$('.b-card').length;
+  ok(bCards === 60, '看题页首屏渲染 60 题（分页加载）', bCards);
+  ok($$('.b-card .opt.correct').length > 0, '看题页选项高亮正确答案');
+  ok($$('.b-card .result-line').length > 0, '看题页显示答案行');
+  // 隐藏答案
+  click('[data-act="browse-answer"]');
+  await sleep(200);
+  ok($$('.b-card .result-line').length === 0, '隐藏答案后不再显示答案行');
+  click('[data-act="browse-answer"]');
+  await sleep(150);
+  // 关键词搜索
+  const kwEl = $('#b-kw');
+  ok(!!kwEl, '看题页有搜索框');
+  kwEl.value = '分词';
+  kwEl.dispatchEvent(new window.Event('input', { bubbles: true }));
+  await sleep(420);
+  const afterKw = $$('.b-card').length;
+  ok(afterKw > 0 && afterKw < 60, '搜索后题目数减少', afterKw);
+  // 题型筛选：只看判断
+  click('[data-act="browse-type"][data-key="judge"]');
+  await sleep(220);
+  const judgeBadges = $$('.b-card .badge').filter(e => e.textContent.indexOf('判断') >= 0).length;
+  ok(judgeBadges === $$('.b-card').length, '题型筛选后只剩判断题', judgeBadges + '/' + $$('.b-card').length);
+  // 重置
+  click('[data-act="browse-type"][data-key="judge"]');
+  await sleep(150);
+
+  /* ---------- 9d. 填空题分空作答 ---------- */
+  click('[data-nav="practice"]');
+  await waitFor(() => $('#p-bank'), 2500);
+  if ($('[data-act="discard-session"]')) { click('[data-act="discard-session"]'); await sleep(150); }
+  // 选一个含「多空填空题」的题库再开始
+  const mlBank = DATA.banks.filter(b => b.questions.some(q => q.qtype === 'fill' && window.QuizLogic.blankCount(q.stem) >= 2))[0];
+  ok(!!mlBank, '存在含多空填空题的题库', mlBank && mlBank.name);
+  if (mlBank && $('#p-bank')) { $('#p-bank').value = String(mlBank.id); }
+  click('[data-act="start-practice"]');
+  await waitFor(() => $('.q-card'), 3000);
+  const pNow = window.__quiz.practice;
+  const multiBlankIdx = pNow.questions.findIndex(q =>
+    q.qtype === 'fill' && window.QuizLogic.blankCount(q.stem) >= 2);
+  ok(multiBlankIdx >= 0, '题库中存在多空填空题', multiBlankIdx);
+  if (multiBlankIdx >= 0) {
+    click($$('.nav-grid .cell')[multiBlankIdx]);
+    await sleep(200);
+    const inputs = $$('[data-blank]');
+    const wantBlanks = window.QuizLogic.blankCount(pNow.questions[pNow.idx].stem);
+    ok(inputs.length === wantBlanks, '按空位数量渲染独立输入框', inputs.length + '/' + wantBlanks);
+    inputs.forEach((inp, i) => {
+      inp.value = '我的第' + (i + 1) + '空';
+      inp.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+    click('[data-act="confirm"]');
+    await sleep(220);
+    const refs = $$('.blank-ref');
+    ok(refs.length >= wantBlanks, '提交后逐空展示参考答案', refs.length);
+    ok($$('.blank-ref .blank-ans').length >= wantBlanks, '每个空都有参考文本');
+    ok(!!$('[data-act="self-ok"]'), '多空提交后仍可自评');
+    click('[data-act="self-ok"]');
+    await sleep(200);
+    const fillRec = window.__quiz.state.records.filter(r => r.qid === pNow.questions[multiBlankIdx].id).pop();
+    ok(fillRec && /；/.test(fillRec.sel), '多空作答按「；」拼接入库', fillRec && fillRec.sel);
+  }
+
+  /* ---------- 9e. 练习进度记忆 ---------- */
+  const savedSess = JSON.parse(window.localStorage.getItem('quizmaster.web.session.v1') || 'null');
+  ok(savedSess && savedSess.qids && savedSess.qids.length > 0, '练习进度已写入 localStorage', savedSess && savedSess.qids.length);
+  ok(savedSess && savedSess.idx > 0, '记录了当前题号', savedSess && savedSess.idx);
+  const dom4 = new JSDOM(INLINE_HTML, {
+    url: 'https://xp-kon.github.io/test/', runScripts: 'dangerously',
+    pretendToBeVisual: true, virtualConsole: vc,
+    beforeParse(w) {
+      w.fetch = () => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(DATA) });
+      w.scrollTo = () => {};
+      w.localStorage.setItem('quizmaster.web.v1', JSON.stringify(persisted));
+      w.localStorage.setItem('quizmaster.web.session.v1', JSON.stringify(savedSess));
+    }
+  });
+  const w4 = dom4.window;
+  await waitFor(() => w4.document.querySelectorAll('.stat').length === 5, 5000);
+  const navP = w4.document.querySelector('[data-nav="practice"]');
+  navP.dispatchEvent(new w4.MouseEvent('click', { bubbles: true }));
+  const hasResume = await waitFor(() => w4.document.querySelector('[data-act="resume-practice"]'), 2500);
+  ok(hasResume, '重进练习页出现「继续练习」卡片');
+  if (!hasResume) {
+    console.log('    DEBUG sess=' + (w4.localStorage.getItem('quizmaster.web.session.v1') || 'null').slice(0, 120));
+    console.log('    DEBUG main=' + (w4.document.querySelector('#main') || { innerHTML: '' }).innerHTML.slice(0, 160));
+  }
+  const resumeCardTxt = w4.document.querySelector('.resume-card') ? w4.document.querySelector('.resume-card').textContent : '';
+  ok(/停在第 \d+ \/ \d+ 题/.test(resumeCardTxt), '显示停留位置', resumeCardTxt.slice(0, 40));
+  const resumeBtn = w4.document.querySelector('[data-act="resume-practice"]');
+  resumeBtn.dispatchEvent(new w4.MouseEvent('click', { bubbles: true }));
+  ok(await waitFor(() => w4.document.querySelector('.q-card'), 3000), '点击继续后进入练习会话');
+  const resumed = w4.__quiz.practice;
+  ok(resumed && resumed.idx === savedSess.idx, '恢复到上次的题号', resumed && (resumed.idx + '/' + savedSess.idx));
+  ok(resumed && Object.keys(resumed.graded).length >= 1, '已作答记录一并恢复', resumed && Object.keys(resumed.graded).length);
+
   /* ---------- 10. 刷新后进度保留 ---------- */
   const dom2 = new JSDOM(INLINE_HTML, {
     url: 'https://xp-kon.github.io/test/', runScripts: 'dangerously',
@@ -338,6 +436,7 @@ const INLINE_HTML = inlineHtml();
   if (fail) { fails.slice(0, 15).forEach(f => console.log('  FAIL: ' + f)); process.exit(1); }
   process.exit(0);
 })().catch(e => {
+  fails.slice(0, 12).forEach(f => console.log('  FAIL: ' + f));
   console.log('PASS ' + pass + ' FAIL ' + (fail + 1));
   console.log('  FAIL: 脚本异常 ' + (e && e.stack ? e.stack.split('\n').slice(0, 4).join(' | ') : e));
   process.exit(1);
