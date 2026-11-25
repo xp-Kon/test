@@ -1172,6 +1172,42 @@
   }
 
   /* ---------------- 错题本 / 收藏 ---------------- */
+
+  /* 最近一次作答记录（用于错题本里标出「你选了什么」） */
+  function lastRecord(qid) {
+    var recs = App.state.records;
+    for (var i = recs.length - 1; i >= 0; i--) {
+      if (recs[i].qid === qid) return recs[i];
+    }
+    return null;
+  }
+
+  /* 列表页的选项行：正确项绿底、上次选错的项红底（题号徽标同理） */
+  function listOptions(q) {
+    var want = L.answerLetters(q);
+    var rec = lastRecord(q.id);
+    var picked = rec && rec.sel ? L.normalizeSelection(rec.sel) : '';
+    if (q.qtype === 'fill') {
+      return '<div class="list-ans"><span class="muted">你上次作答：</span>' +
+        (rec && rec.sel ? esc(String(rec.sel).slice(0, 200)) : '（未作答）') + '</div>';
+    }
+    var html = '';
+    var n = q.qtype === 'judge' ? 2 : (q.options || []).length;
+    for (var i = 0; i < Math.min(8, n); i++) {
+      var L0 = L.LETTERS[i];
+      var cls = 'opt';
+      if (want.indexOf(L0) >= 0) cls += ' correct';
+      else if (picked.indexOf(L0) >= 0) cls += ' wrong';
+      else cls += ' muted';
+      html += '<div class="' + cls + '"><span class="letter">' + L0 + '</span><span>' +
+        esc((q.options || [])[i] || '') + '</span></div>';
+    }
+    if (picked) {
+      html += '<div class="list-ans"><span class="muted">你上次选：</span><b class="pick-wrong">' + esc(picked) + '</b></div>';
+    }
+    return html;
+  }
+
   function renderList(kind) {
     var isWrong = kind === 'wrong';
     var ids = isWrong ? L.activeWrongIds(App.state) : Object.keys(App.state.favs);
@@ -1211,9 +1247,7 @@
           '</div>' +
           '<div class="stem" style="font-size:14px;margin-bottom:8px">' + esc(q.stem) + '</div>';
         if ((q.options || []).length) {
-          html += '<div class="muted" style="line-height:1.8">' + q.options.map(function (o, k) {
-            return L.LETTERS[k] + '. ' + esc(o);
-          }).join('<br>') + '</div>';
+          html += listOptions(q);
         }
         html += '<div class="analysis"><div class="h">答案</div>' + esc(answerText(q)) +
           (q.analysis ? '<div style="margin-top:8px">' + esc(q.analysis) + '</div>' : '') + '</div></div>';

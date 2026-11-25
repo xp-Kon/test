@@ -231,6 +231,10 @@ const INLINE_HTML = inlineHtml();
   click('[data-nav="wrong"]');
   await waitFor(() => $('.card'), 2000);
   ok($$('.card').length >= 1, '错题本页面渲染');
+  ok($$('.card .opt').length > 0, '错题本用选项行展示（带题号徽标）', $$('.card .opt').length);
+  ok($$('.card .opt.wrong').length > 0, '上次选错的选项标红', $$('.card .opt.wrong').length);
+  ok($$('.card .opt.correct').length > 0, '正确选项标绿');
+  ok($$('.card .pick-wrong').length > 0, '显示「你上次选：X」', $$('.card .pick-wrong').length);
   const resolveBtn = $('[data-act="wrong-resolve"]');
   const wrongBefore = text('#nav-wrong');
   if (resolveBtn) {
