@@ -5,6 +5,7 @@
 """
 import json
 import os
+import re
 import sys
 import glob
 import datetime
@@ -19,6 +20,32 @@ OUT = os.path.join(ROOT, 'data', 'banks.json')
 SRC_DIR = ROOT
 
 
+
+ISSUE_TIME = re.compile(r'^\d{1,2}:\d{2}(:\d{2})?$')
+ISSUE_FRAC = re.compile(r'^0\.\d{6,}$')
+
+
+def option_issues(q):
+    """检查选项质量问题（源表格常见的转码损伤）。"""
+    out = []
+    opts = [str(o).strip() for o in (q.options or [])]
+    if q.qtype in ('single', 'multiple'):
+        if len([o for o in opts if o]) < 2:
+            out.append('选项不足')
+        if any(o == '' for o in opts):
+            out.append('选项为空')
+        uniq = {o for o in opts if o}
+        if len(uniq) == 1 and len(opts) >= 2:
+            out.append('选项内容完全相同')
+        if any(not re.search(r'[0-9A-Za-z一-鿿]', o) for o in opts if o):
+            out.append('选项缺少数值/文字')
+        if any(ISSUE_TIME.match(o) for o in opts):
+            out.append('选项被表格转成时间')
+        if any(ISSUE_FRAC.match(o) for o in opts):
+            out.append('选项被表格转成小数')
+    return sorted(set(out))
+
+
 def build(src_dir=None):
     src = src_dir or SRC_DIR
     files = sorted(glob.glob(os.path.join(src, '*.xlsx')))
@@ -28,6 +55,7 @@ def build(src_dir=None):
     banks = []
     qid = 1
     stats = []
+    issue_counter = __import__('collections').Counter()
     for i, f in enumerate(files, start=1):
         res = qparser.parse_file(f)
         name = os.path.basename(f).split('_')[0]
@@ -35,14 +63,19 @@ def build(src_dir=None):
         for q in res.questions:
             if not (q.stem or '').strip() or not (q.answer or '').strip():
                 continue
-            qs.append({
+            item = {
                 'id': qid,
                 'qtype': q.qtype,
                 'stem': q.stem.strip(),
                 'options': [o.strip() for o in q.options],
                 'answer': q.answer.strip(),
                 'analysis': (q.analysis or '').strip(),
-            })
+            }
+            issues = option_issues(q)
+            if issues:
+                item['issues'] = issues
+                issue_counter.update(issues)
+            qs.append(item)
             qid += 1
         banks.append({
             'id': i,
@@ -66,6 +99,8 @@ def build(src_dir=None):
 
     total = sum(len(b['questions']) for b in banks)
     print('banks', len(banks), 'questions', total, 'bytes', os.path.getsize(OUT))
+    flagged = sum(1 for b in banks for q in b['questions'] if q.get('issues'))
+    print('选项待校对', flagged, '条；分布', dict(issue_counter))
     for name, n, c, warn in stats:
         print(' ', name, n, c, ('warn=' + ';'.join(warn)) if warn else '')
     return payload

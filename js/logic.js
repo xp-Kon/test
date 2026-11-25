@@ -196,13 +196,15 @@
     banks.forEach(function (b) {
       byBank[b.id] = { id: b.id, name: b.name, source: b.source || '', count: 0,
                        single: 0, multiple: 0, judge: 0, fill: 0,
-                       attempts: 0, correct: 0, practiced: 0, accuracy: 0, wrong: 0, favorites: 0 };
+                       attempts: 0, correct: 0, practiced: 0, accuracy: 0, wrong: 0, favorites: 0,
+                       flagged: 0 };
     });
     banks.forEach(function (b) {
       var st = byBank[b.id];
       bankQuestions(b).forEach(function (q) {
         st.count += 1;
         if (st[q.qtype] !== undefined) st[q.qtype] += 1;
+        if (q.issues && q.issues.length) st.flagged += 1;
       });
     });
     var q2bank = bankIndex(banks);

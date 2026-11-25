@@ -207,7 +207,9 @@
         '<span>正确率<b>' + (b.attempts ? fmtPct(b.accuracy) : '—') + '</b></span>' +
         '<span>错题<b style="color:var(--red)">' + (b.wrong || 0) + '</b></span>' +
         '</div>' +
-        '<div class="muted" style="font-size:11.5px;margin:6px 0 10px">单选 ' + b.single + ' · 多选 ' + b.multiple +
+        '<div class="muted" style="font-size:11.5px;margin:6px 0 10px">' +
+        (b.flagged ? '<span style="color:#B45309">⚠ ' + b.flagged + ' 道选项待校对 · </span>' : '') +
+        '单选 ' + b.single + ' · 多选 ' + b.multiple +
         ' · 判断 ' + b.judge + ' · 填空/简答 ' + b.fill + ' · 收藏 ' + (b.favorites || 0) + '</div>' +
         '<div class="mob-actions">' +
         '<button class="btn mini" data-act="bank-practice" data-id="' + b.id + '">练习</button>' +
@@ -508,8 +510,16 @@
     return '已作答 ' + (ok + bad + pending) + ' / ' + P.questions.length + ' · 答对 ' + ok + ' · 答错 ' + bad + (pending ? ' · 待自评 ' + pending : '');
   }
 
+
+  function issueBadge(q) {
+    if (!q || !q.issues || !q.issues.length) return '';
+    return '<span class="chip" style="background:var(--amber-bg);color:#B45309" title="' +
+      esc(q.issues.join(' / ')) + '">⚠ ' + esc(q.issues[0]) + '</span>';
+  }
+
   function questionHead(q, idx, total) {
-    return '<div class="q-head">' + typeBadge(q) + '<span class="num-chip">第 ' + (idx + 1) + ' 题 / 共 ' + total + '</span></div>';
+    return '<div class="q-head">' + typeBadge(q) + '<span class="num-chip">第 ' + (idx + 1) + ' 题 / 共 ' + total + '</span>' +
+      issueBadge(q) + '</div>';
   }
 
   function questionBody(q, o) {
@@ -991,7 +1001,7 @@
     var letters = lettersOf(q);
     var want = L.answerLetters(q);
     var html = '<div class="card b-card"><div class="q-head">' + typeBadge(q) +
-      '<span class="num-chip">' + (idx + 1) + '</span>' +
+      '<span class="num-chip">' + (idx + 1) + '</span>' + issueBadge(q) +
       (App.state.wrong[q.id] && !App.state.wrong[q.id].resolved
         ? '<span class="chip" style="background:var(--red-bg);color:#B91C1C">错 ' + App.state.wrong[q.id].count + ' 次</span>' : '') +
       '<div class="spacer"></div>' +
@@ -1193,7 +1203,7 @@
         } else {
           meta = '<span class="chip">收藏于 ' + fmtDate(App.state.favs[q.id] || Date.now()) + '</span>';
         }
-        html += '<div class="card"><div class="q-head">' + typeBadge(q) + '<span class="num-chip">' + (i + 1) + '</span>' + meta +
+        html += '<div class="card"><div class="q-head">' + typeBadge(q) + '<span class="num-chip">' + (i + 1) + '</span>' + issueBadge(q) + meta +
           '<div class="spacer"></div>' +
           '<button class="btn mini" data-act="list-open" data-id="' + q.id + '">查看/背题</button>' +
           (isWrong ? '<button class="btn mini ghost" data-act="wrong-resolve" data-id="' + q.id + '">标记已掌握</button>'

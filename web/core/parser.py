@@ -477,11 +477,24 @@ def parse_docx(path: str, warnings: list) -> list:
 
 
 def _cell_text(v) -> str:
-    """单元格转文本，整数值的 float 还原成 int（FIX-P4）。"""
+    """单元格转文本。
+
+    FIX-P4 整数值的 float 还原成 int；FIX-P5 Excel 把 1:10 这类文本存成 time、
+           把比例存成小数，这里按表格显示值还原，避免选项变成 01:10:00 / 0.1111。
+    """
+    import datetime as _dt
     if v is None:
         return ''
-    if isinstance(v, float) and v.is_integer():
-        return str(int(v))
+    if isinstance(v, _dt.datetime):
+        return v.strftime('%Y-%m-%d %H:%M')
+    if isinstance(v, _dt.time):
+        return v.strftime('%H:%M') if v.second == 0 else v.strftime('%H:%M:%S')
+    if isinstance(v, _dt.date):
+        return v.strftime('%Y-%m-%d')
+    if isinstance(v, float):
+        if v.is_integer():
+            return str(int(v))
+        return ('%.10g' % v)
     return str(v)
 
 
