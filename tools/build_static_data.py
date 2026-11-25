@@ -6,6 +6,7 @@
 import collections
 import datetime
 import glob
+import importlib
 import json
 import os
 import re
@@ -15,7 +16,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 
-from web.core import parser as qparser  # noqa: E402
+qparser = importlib.import_module('web.core.parser')  # 需要在 sys.path 调整之后再导入
 
 OUT = os.path.join(ROOT, 'data', 'banks.json')
 SRC_DIR = ROOT
