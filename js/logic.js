@@ -607,7 +607,7 @@
     var strip = function (t) {
       return String(t)
         .replace(/^[（(]\s*\d{1,2}\s*[）)]\s*/, '')
-        .replace(/^\d{1,2}\s*[.、:：]\s*/, '')
+        .replace(/^\d{1,2}\s*[.、:：](?!\d)\s*/, '')   // 只去「1. 甲」这种序号，不能吃掉 1.5h 的小数点
         .replace(/^[①②③④⑤⑥⑦⑧⑨⑩]\s*/, '')
         .replace(/^[-–—·•]\s*/, '')
         .replace(/[；;、，,\s]+$/, '')
