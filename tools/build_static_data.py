@@ -3,12 +3,13 @@
 用法：python tools/build_static_data.py
 输出：site/data/banks.json
 """
+import collections
+import datetime
+import glob
 import json
 import os
 import re
 import sys
-import glob
-import datetime
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -55,7 +56,7 @@ def build(src_dir=None):
     banks = []
     qid = 1
     stats = []
-    issue_counter = __import__('collections').Counter()
+    issue_counter = collections.Counter()
     for i, f in enumerate(files, start=1):
         res = qparser.parse_file(f)
         name = os.path.basename(f).split('_')[0]
@@ -84,8 +85,7 @@ def build(src_dir=None):
             'created_at': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'questions': qs,
         })
-        from collections import Counter
-        c = Counter(x['qtype'] for x in qs)
+        c = collections.Counter(x['qtype'] for x in qs)
         stats.append((name, len(qs), dict(c), res.warnings))
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)

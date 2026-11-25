@@ -9,15 +9,12 @@
   FIX-P4 xlsx 数值单元格 str(1.0)='1.0' → 整数值还原成 int，避免污染题干/答案。
 """
 import csv
+import datetime as _dt
 import io
 import re
 from pathlib import Path
 
-from .models import ParsedQuestion, ParseResult, SINGLE, MULTIPLE, JUDGE, FILL
-
-
-
-
+from .models import FILL, JUDGE, MULTIPLE, SINGLE, ParsedQuestion, ParseResult
 
 RE_QSTART = re.compile(
     r'^\s*(?:第\s*(\d{1,4})\s*题|[\[【(（]\s*(\d{1,4})\s*[\])）]\s*|(\d{1,4})\s*[\.、,．:：\)）]\s*)'
@@ -160,8 +157,6 @@ def parse_lines(lines: list) -> list:
             if L and T and L not in opt_map:
                 opt_map[L] = T
         letters = sorted(opt_map.keys())
-        seq_ok = bool(letters) and all(ord(letters[i]) == ord('A') + i
-                                       for i in range(len(letters)))
         opts = [(L, opt_map[L]) for L in letters]
         answer = cur['answer']
         analysis = ' '.join(cur['analysis']).strip()
@@ -294,7 +289,6 @@ def parse_table(rows: list, warnings: list) -> list:
     mapping = {}
     for i in range(min(3, len(rows))):
         row = rows[i]
-        mp = {}  # ?? BUG? 未使用的局部变量
         stem_col = -1
         answer_col = -1
         analysis_col = -1
@@ -314,12 +308,13 @@ def parse_table(rows: list, warnings: list) -> list:
                 type_col = j
             else:
                 mo = OPT_COL_RE.match(cl)
-                if not mo: continue  # ??? uncertain: 原文 309 行为单行 if/continue（跳转与 if 同行）
+                if not mo:
+                    continue
                 opt_cols[mo.group(1).upper()] = j
         if stem_col >= 0 and (answer_col >= 0 or opt_cols):
-            mapping = dict(stem=stem_col, answer=answer_col,
-                           analysis=analysis_col, type=type_col,
-                           opts=opt_cols)
+            mapping = {'stem': stem_col, 'answer': answer_col,
+                       'analysis': analysis_col, 'type': type_col,
+                       'opts': opt_cols}
             header_row = i
             break
     if header_row >= 0:
@@ -342,7 +337,6 @@ def _parse_table_with_header(rows, mapping, warnings) -> list:
     out = []
     sc, ac, anc, tc = mapping['stem'], mapping['answer'], mapping['analysis'], mapping['type']
     opts_map = mapping['opts']
-    n_opts = max(opts_map.values()) + 1 if opts_map else 0  # ?? BUG? n_opts 赋值后从未使用
     for r in rows:
         stem = r[sc] if sc < len(r) else ''
         if not stem:
@@ -416,7 +410,7 @@ def _parse_table_no_header(rows, warnings) -> list:
         answer_col = -1
 
 
-    hi, lo = min(stem_col, answer_col if answer_col >= 0 else ncol), (answer_col if answer_col >= 0 else ncol)  # ?? BUG? hi/lo 取反：hi 实际是 min，导致 opt_cols 为空、选项丢失
+    hi = min(stem_col, answer_col if answer_col >= 0 else ncol)  # ?? BUG? 原实现 hi 取 min：无表头且答案列在右侧时选项丢失
     opt_cols = [j for j in range(stem_col + 1, hi) if j != answer_col]
 
     if answer_col >= 0 and answer_col < stem_col:
@@ -462,7 +456,7 @@ def _read_csv_bytes(data: bytes) -> list:
 
 
 def parse_docx(path: str, warnings: list) -> list:
-    from docx import Document
+    from docx import Document  # type: ignore  # 运行时可选依赖
     doc = Document(path)
     para_lines = [p.text for p in doc.paragraphs if p.text.strip()]
     table_rows = []
@@ -470,7 +464,7 @@ def parse_docx(path: str, warnings: list) -> list:
         for row in tbl.rows:
             table_rows.append([c.text for c in row.cells])  # ?? BUG? 合并单元格会把同一文本重复成多列
 
-    n_chars = sum(len(l) for l in para_lines)
+    n_chars = sum(len(ln) for ln in para_lines)
     if table_rows and (n_chars < 300 or len(table_rows) > 8):  # ?? BUG? 表格/段落二选一，含表格的文档段落题会丢
         return parse_table(table_rows, warnings)
     return parse_lines(para_lines)
@@ -482,7 +476,6 @@ def _cell_text(v) -> str:
     FIX-P4 整数值的 float 还原成 int；FIX-P5 Excel 把 1:10 这类文本存成 time、
            把比例存成小数，这里按表格显示值还原，避免选项变成 01:10:00 / 0.1111。
     """
-    import datetime as _dt
     if v is None:
         return ''
     if isinstance(v, _dt.datetime):
@@ -494,12 +487,12 @@ def _cell_text(v) -> str:
     if isinstance(v, float):
         if v.is_integer():
             return str(int(v))
-        return ('%.10g' % v)
+        return f'{v:.10g}'
     return str(v)
 
 
 def parse_xlsx(path: str, warnings: list) -> list:
-    from openpyxl import load_workbook
+    from openpyxl import load_workbook  # type: ignore  # 运行时可选依赖
     wb = load_workbook(path, read_only=True, data_only=True)
     out = []
     for ws in wb.worksheets:
@@ -517,7 +510,7 @@ def parse_xlsx(path: str, warnings: list) -> list:
 
 
 def parse_xls(path: str, warnings: list) -> list:
-    import xlrd
+    import xlrd  # type: ignore  # 运行时可选依赖
     book = xlrd.open_workbook(path)
     out = []
     for ws in book.sheets():
@@ -525,7 +518,8 @@ def parse_xls(path: str, warnings: list) -> list:
         for i in range(ws.nrows):
             rows.append([str(v) if v is not None else '' for v in ws.row_values(i)])
         qs = parse_table(rows, warnings)
-        if not qs: continue
+        if not qs:
+            continue
         out.extend(qs)
     return out
 
