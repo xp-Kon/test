@@ -479,7 +479,12 @@
       var cls = 'cell' + (i === P.idx ? ' cur' : '') + (g ? (g.ok === null ? '' : (g.ok ? ' ok' : ' bad')) : '');
       html += '<button class="' + cls + '" data-act="jump" data-idx="' + i + '">' + (i + 1) + '</button>';
     });
-    html += '</div><div class="muted" style="margin-top:10px">' + navStat(P) + '</div></div>' +
+    html += '</div><div class="legend">' +
+      '<span><i class="cur"></i>当前题</span>' +
+      '<span><i class="ok"></i>答对</span>' +
+      '<span><i class="bad"></i>答错</span>' +
+      '<span><i></i>未作答</span>' +
+      '</div><div class="muted" style="margin-top:8px">' + navStat(P) + '</div></div>' +
       '<div class="card"><div class="card-title">本题</div>' +
       '<div class="row" style="gap:8px"><button class="btn mini" data-act="fav">' + (App.state.favs[q.id] ? '★ 取消收藏' : '☆ 收藏本题') + '</button>' +
       (App.state.wrong[q.id] && !App.state.wrong[q.id].resolved ? '<span class="chip" style="background:var(--red-bg);color:#B91C1C">错 ' + App.state.wrong[q.id].count + ' 次</span>' : '') +
